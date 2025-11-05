@@ -1,0 +1,129 @@
+package cmd
+
+import (
+	"context"
+	"errors"
+	"fmt"
+	"os"
+	"strings"
+	"time"
+
+	"bootstrap/internal/inventory"
+	"bootstrap/internal/redfish"
+
+	"github.com/spf13/cobra"
+	"gopkg.in/yaml.v3"
+)
+
+var (
+	fwFile     string
+	fwHostsCSV string
+	fwType     string
+	fwImageURI string
+	fwTargets  []string
+	fwProtocol string
+	fwInsecure bool
+	fwTimeout  time.Duration
+)
+
+// defaultTargets returns target list for shorthand types.
+func defaultTargets(t string) ([]string, error) {
+	switch strings.ToLower(t) {
+	case "cc", "bmc":
+		return []string{"/redfish/v1/UpdateService/FirmwareInventory/BMC"}, nil
+	case "nc":
+		return []string{"/redfish/v1/UpdateService/FirmwareInventory/BMC"}, nil
+	case "bios":
+		return []string{
+			"/redfish/v1/UpdateService/FirmwareInventory/Node0.BIOS",
+			"/redfish/v1/UpdateService/FirmwareInventory/Node1.BIOS",
+		}, nil
+	default:
+		return nil, fmt.Errorf("unknown firmware type: %s (use cc|nc|bios or specify --targets)", t)
+	}
+}
+
+var firmwareCmd = &cobra.Command{
+	Use:   "firmware",
+	Short: "Update firmware via Redfish SimpleUpdate",
+	RunE: func(cmd *cobra.Command, args []string) error {
+		if fwImageURI == "" {
+			return errors.New("--image-uri is required")
+		}
+		if len(fwTargets) == 0 {
+			if fwType == "" {
+				return errors.New("--type is required when --targets is not provided (one of cc|nc|bios)")
+			}
+			var err error
+			fwTargets, err = defaultTargets(fwType)
+			if err != nil {
+				return err
+			}
+		}
+
+		user := os.Getenv("REDFISH_USER")
+		pass := os.Getenv("REDFISH_PASSWORD")
+		if user == "" || pass == "" {
+			return fmt.Errorf("REDFISH_USER and REDFISH_PASSWORD env vars are required")
+		}
+
+		// Determine hosts to target
+		hosts := []string{}
+		if strings.TrimSpace(fwHostsCSV) != "" {
+			for _, h := range strings.Split(fwHostsCSV, ",") {
+				h = strings.TrimSpace(h)
+				if h != "" {
+					hosts = append(hosts, h)
+				}
+			}
+		} else {
+			// Load from inventory file
+			raw, err := os.ReadFile(fwFile)
+			if err != nil {
+				return err
+			}
+			var doc inventory.FileFormat
+			if err := yaml.Unmarshal(raw, &doc); err != nil {
+				return err
+			}
+			if len(doc.BMCs) == 0 {
+				return fmt.Errorf("input must contain non-empty bmcs[]")
+			}
+			for _, b := range doc.BMCs {
+				host := b.IP
+				if host == "" {
+					host = b.Xname
+				}
+				hosts = append(hosts, host)
+			}
+		}
+
+		// Apply firmware update to each host
+		for _, host := range hosts {
+			ctx := cmd.Context()
+			if fwTimeout > 0 {
+				var cancel context.CancelFunc
+				ctx, cancel = context.WithTimeout(ctx, fwTimeout)
+				defer cancel()
+			}
+			if err := redfish.SimpleUpdate(ctx, host, user, pass, fwInsecure, fwTimeout, fwImageURI, fwTargets, fwProtocol); err != nil {
+				fmt.Fprintf(os.Stderr, "WARN: %s: firmware update failed: %v\n", host, err)
+			} else {
+				fmt.Printf("Triggered firmware update on %s\n", host)
+			}
+		}
+		return nil
+	},
+}
+
+func init() {
+	rootCmd.AddCommand(firmwareCmd)
+	firmwareCmd.Flags().StringVarP(&fwFile, "file", "f", "inventory.yaml", "Inventory file to read bmcs[] from when --hosts is not provided")
+	firmwareCmd.Flags().StringVar(&fwHostsCSV, "hosts", "", "Comma-separated list of BMC hosts to target (overrides --file)")
+	firmwareCmd.Flags().StringVar(&fwType, "type", "", "Firmware type preset: cc|nc|bios (ignored if --targets provided)")
+	firmwareCmd.Flags().StringVar(&fwImageURI, "image-uri", "", "Firmware image URI accessible by BMC (required)")
+	firmwareCmd.Flags().StringSliceVar(&fwTargets, "targets", nil, "Explicit FirmwareInventory target URIs (advanced)")
+	firmwareCmd.Flags().StringVar(&fwProtocol, "protocol", "HTTP", "TransferProtocol for SimpleUpdate (HTTP/HTTPS)")
+	firmwareCmd.Flags().BoolVar(&fwInsecure, "insecure", true, "allow insecure TLS to BMCs")
+	firmwareCmd.Flags().DurationVar(&fwTimeout, "timeout", 5*time.Minute, "per-BMC firmware request timeout")
+}

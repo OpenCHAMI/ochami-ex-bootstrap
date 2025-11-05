@@ -1,4 +1,4 @@
-package main
+package inventory
 
 // Entry represents a BMC or Node record in the YAML file.
 type Entry struct {

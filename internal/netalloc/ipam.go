@@ -1,37 +1,35 @@
-package main
+package netalloc
 
 import (
 	"context"
 	"net"
 
-	"github.com/metal-stack/go-ipam"
+	ipam "github.com/metal-stack/go-ipam"
 )
 
-type allocator struct {
+type Allocator struct {
 	ipm    ipam.Ipamer
 	prefix *ipam.Prefix
 }
 
-func newAllocator(cidr string) (*allocator, error) {
+func NewAllocator(cidr string) (*Allocator, error) {
 	ctx := context.Background()
 	ipm := ipam.New(ctx)
 	pr, err := ipm.NewPrefix(ctx, cidr)
 	if err != nil {
 		return nil, err
 	}
-	// Reserve network,broadcast implicitly by not allocating them.
-	// Common gateway (.1) is reserved explicitly so we don't hand it out.
 	if gw := firstHost(pr); gw != "" {
 		_, _ = ipm.AcquireSpecificIP(ctx, pr.Cidr, gw)
 	}
-	return &allocator{ipm: ipm, prefix: pr}, nil
+	return &Allocator{ipm: ipm, prefix: pr}, nil
 }
 
-func (a *allocator) reserve(ip string) {
-	_, _ = a.ipm.AcquireSpecificIP(context.Background(), a.prefix.Cidr, ip) // best-effort
+func (a *Allocator) Reserve(ip string) {
+	_, _ = a.ipm.AcquireSpecificIP(context.Background(), a.prefix.Cidr, ip)
 }
 
-func (a *allocator) next() (string, error) {
+func (a *Allocator) Next() (string, error) {
 	addr, err := a.ipm.AcquireIP(context.Background(), a.prefix.Cidr)
 	if err != nil {
 		return "", err
@@ -40,7 +38,6 @@ func (a *allocator) next() (string, error) {
 }
 
 func firstHost(pr *ipam.Prefix) string {
-	// crude: for IPv4, the first assignable is .1, often a gateway; we’ll reserve it.
 	_, n, err := net.ParseCIDR(pr.Cidr)
 	if err != nil {
 		return ""
