@@ -101,12 +101,15 @@ var firmwareCmd = &cobra.Command{
 		// Apply firmware update to each host
 		for _, host := range hosts {
 			ctx := cmd.Context()
+			var cancel context.CancelFunc
 			if fwTimeout > 0 {
-				var cancel context.CancelFunc
 				ctx, cancel = context.WithTimeout(ctx, fwTimeout)
-				defer cancel()
 			}
-			if err := redfish.SimpleUpdate(ctx, host, user, pass, fwInsecure, fwTimeout, fwImageURI, fwTargets, fwProtocol); err != nil {
+			err := redfish.SimpleUpdate(ctx, host, user, pass, fwInsecure, fwTimeout, fwImageURI, fwTargets, fwProtocol)
+			if cancel != nil {
+				cancel()
+			}
+			if err != nil {
 				fmt.Fprintf(os.Stderr, "WARN: %s: firmware update failed: %v\n", host, err)
 			} else {
 				fmt.Printf("Triggered firmware update on %s\n", host)

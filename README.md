@@ -8,6 +8,7 @@ This repository contains a lightweight Go implementation originally based on sma
 
 - Generate an initial `inventory.yaml` with a `bmcs` list (xname, MAC, IP) using `--init-bmcs`.
 - Discover bootable NICs via Redfish on each BMC and allocate IPs from a given subnet.
+- Trigger firmware updates via Redfish UpdateService SimpleUpdate.
 - Output file format: a single YAML file with two top-level keys:
   - `bmcs`: list of management controllers (xname, mac, ip)
   - `nodes`: list of discovered node network records (xname, mac, ip)
@@ -18,6 +19,7 @@ This repository contains a lightweight Go implementation originally based on sma
 - `cmd/` — Cobra commands:
   - `init-bmcs` — generate initial inventory with BMC entries
   - `discover` — discover bootable NICs via Redfish and update nodes[]
+  - `firmware` — trigger firmware updates (BMC/BIOS) via SimpleUpdate
 - `internal/` — code split by concern:
   - `inventory/` — YAML types (`Entry`, `FileFormat`)
   - `redfish/` — minimal Redfish client and bootable NIC heuristics
@@ -83,6 +85,43 @@ Notes:
 - The program makes simple heuristic decisions about which NIC is bootable (UEFI path hints, DHCP addresses, or a MAC on an enabled interface).
 - IP allocation is done with `github.com/metal-stack/go-ipam`. The code reserves `.1` (first host) as a gateway and avoids network/broadcast implicitly.
 - If `--ssh-pubkey` is provided, the tool attempts a Redfish PATCH to `/redfish/v1/Managers/BMC/NetworkProtocol` with an OEM payload setting `SSHAdmin.AuthorizedKeys` to the contents of the file.
+
+### 3) Trigger firmware updates
+
+Use the `firmware` subcommand to invoke Redfish UpdateService SimpleUpdate on targets. You can specify either a preset `--type` (cc|nc|bios) or provide explicit `--targets` URIs.
+
+Required env vars:
+- `REDFISH_USER` — Redfish username
+- `REDFISH_PASSWORD` — Redfish password
+
+Examples:
+
+```bash
+# Update BMC firmware on all hosts in inventory.yaml
+export REDFISH_USER=admin
+export REDFISH_PASSWORD=secret
+./ochami_bootstrap firmware \
+  --file examples/inventory.yaml \
+  --type cc \
+  --image-uri http://10.0.0.1/images/bmc-firmware.bin \
+  --protocol HTTP \
+  --timeout 5m
+
+# Update BIOS firmware using explicit targets (example Node0/Node1 BIOS paths)
+./ochami_bootstrap firmware \
+  --hosts 10.1.1.20,10.1.1.21 \
+  --targets /redfish/v1/UpdateService/FirmwareInventory/Node0.BIOS,/redfish/v1/UpdateService/FirmwareInventory/Node1.BIOS \
+  --image-uri http://10.0.0.1/images/bios.cap \
+  --protocol HTTP
+```
+
+Notes:
+- Preset `--type` values:
+  - `cc` or `bmc`: targets BMC firmware (`/redfish/v1/UpdateService/FirmwareInventory/BMC`).
+  - `nc`: same as BMC for now (adjust if your platform exposes a different target).
+  - `bios`: uses two targets (`Node0.BIOS`, `Node1.BIOS`) by default; use `--targets` if your platform differs.
+- You can provide `--hosts` (comma-separated hostnames/IPs) to override reading from `--file`.
+- `--insecure` allows skipping TLS verification for BMC HTTPS endpoints.
 
 ## Dependencies
 
