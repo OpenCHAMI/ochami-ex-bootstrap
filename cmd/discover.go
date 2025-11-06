@@ -20,6 +20,7 @@ var (
 	discInsecure  bool
 	discTimeout   time.Duration
 	discSSHPubKey string
+	discDryRun    bool
 )
 
 var discoverCmd = &cobra.Command{
@@ -45,6 +46,24 @@ var discoverCmd = &cobra.Command{
 		}
 		if len(doc.BMCs) == 0 {
 			return fmt.Errorf("input must contain non-empty bmcs[]")
+		}
+
+		// Dry-run: only show what would be contacted and exit.
+		if discDryRun {
+			hosts := make([]string, 0, len(doc.BMCs))
+			for _, b := range doc.BMCs {
+				host := b.IP
+				if host == "" {
+					host = b.Xname
+				}
+				hosts = append(hosts, host)
+			}
+			fmt.Printf("[dry-run] would contact %d BMC(s): %v\n", len(hosts), hosts)
+			fmt.Printf("[dry-run] would allocate node IPs from subnet %s and write back to %s\n", discSubnet, discFile)
+			if discSSHPubKey != "" {
+				fmt.Printf("[dry-run] would set SSH authorized keys on each BMC from %s\n", discSSHPubKey)
+			}
+			return nil
 		}
 
 		// Optionally set SSH authorized keys on each BMC if provided.
@@ -95,4 +114,5 @@ func init() {
 	discoverCmd.Flags().BoolVar(&discInsecure, "insecure", true, "allow insecure TLS to BMCs")
 	discoverCmd.Flags().DurationVar(&discTimeout, "timeout", 12*time.Second, "per-BMC discovery timeout")
 	discoverCmd.Flags().StringVar(&discSSHPubKey, "ssh-pubkey", "", "Path to an SSH public key to set as AuthorizedKeys on each BMC (optional)")
+	discoverCmd.Flags().BoolVar(&discDryRun, "dry-run", false, "plan only: print which BMCs would be contacted and exit")
 }

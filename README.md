@@ -123,6 +123,22 @@ Notes:
 - You can provide `--hosts` (comma-separated hostnames/IPs) to override reading from `--file`.
 - `--insecure` allows skipping TLS verification for BMC HTTPS endpoints.
 
+## Debugging and dry runs
+
+- Global `--debug` prints Redfish request methods and paths, plus response status codes, to stderr. No credentials are logged.
+- Use `--dry-run` to plan actions without contacting hardware:
+  - `discover --dry-run` lists BMCs that would be contacted, the subnet to use, and the output file; it does not patch SSH keys, discover NICs, or write files.
+  - `firmware --dry-run` prints the SimpleUpdate action per host (image URI, targets, protocol) without posting.
+
+Example:
+
+```bash
+./ochami_bootstrap --debug discover --file examples/inventory.yaml --subnet 10.42.0.0/24 --dry-run
+./ochami_bootstrap --debug firmware --file examples/inventory.yaml --type cc --image-uri http://10.0.0.1/bmc.bin --dry-run
+```
+
+If a Redfish call fails, errors include the HTTP status and the body returned by the BMC where available to aid troubleshooting.
+
 ## Dependencies
 
 - Go (module aware). The project will download dependencies with `go mod tidy`.

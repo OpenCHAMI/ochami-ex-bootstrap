@@ -24,6 +24,7 @@ var (
 	fwProtocol string
 	fwInsecure bool
 	fwTimeout  time.Duration
+	fwDryRun   bool
 )
 
 // defaultTargets returns target list for shorthand types.
@@ -105,6 +106,13 @@ var firmwareCmd = &cobra.Command{
 			if fwTimeout > 0 {
 				ctx, cancel = context.WithTimeout(ctx, fwTimeout)
 			}
+			if fwDryRun {
+				fmt.Printf("[dry-run] would POST SimpleUpdate on %s with image=%s targets=%v protocol=%s\n", host, fwImageURI, fwTargets, fwProtocol)
+				if cancel != nil {
+					cancel()
+				}
+				continue
+			}
 			err := redfish.SimpleUpdate(ctx, host, user, pass, fwInsecure, fwTimeout, fwImageURI, fwTargets, fwProtocol)
 			if cancel != nil {
 				cancel()
@@ -129,4 +137,5 @@ func init() {
 	firmwareCmd.Flags().StringVar(&fwProtocol, "protocol", "HTTP", "TransferProtocol for SimpleUpdate (HTTP/HTTPS)")
 	firmwareCmd.Flags().BoolVar(&fwInsecure, "insecure", true, "allow insecure TLS to BMCs")
 	firmwareCmd.Flags().DurationVar(&fwTimeout, "timeout", 5*time.Minute, "per-BMC firmware request timeout")
+	firmwareCmd.Flags().BoolVar(&fwDryRun, "dry-run", false, "plan only: print SimpleUpdate actions without posting")
 }

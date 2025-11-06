@@ -10,6 +10,8 @@ import (
 	"net/http"
 	"strings"
 	"time"
+
+	"bootstrap/internal/diag"
 )
 
 type client struct {
@@ -51,6 +53,7 @@ type rfEthernetInterface struct {
 }
 
 func (c *client) get(ctx context.Context, path string, v any) error {
+	diag.Logf("GET %s", path)
 	req, err := http.NewRequestWithContext(ctx, "GET", c.base+path, nil)
 	if err != nil {
 		return err
@@ -62,6 +65,7 @@ func (c *client) get(ctx context.Context, path string, v any) error {
 		return err
 	}
 	defer resp.Body.Close()
+	diag.Logf("GET %s -> %s", path, resp.Status)
 	if resp.StatusCode >= 300 {
 		b, _ := io.ReadAll(resp.Body)
 		return fmt.Errorf("redfish %s: %s: %s", path, resp.Status, strings.TrimSpace(string(b)))
@@ -74,6 +78,7 @@ func (c *client) post(ctx context.Context, path string, body any) error {
 	if err != nil {
 		return err
 	}
+	diag.Logf("POST %s", path)
 	req, err := http.NewRequestWithContext(ctx, "POST", c.base+path, strings.NewReader(string(b)))
 	if err != nil {
 		return err
@@ -86,6 +91,7 @@ func (c *client) post(ctx context.Context, path string, body any) error {
 		return err
 	}
 	defer resp.Body.Close()
+	diag.Logf("POST %s -> %s", path, resp.Status)
 	if resp.StatusCode >= 300 {
 		rb, _ := io.ReadAll(resp.Body)
 		return fmt.Errorf("redfish POST %s: %s: %s", path, resp.Status, strings.TrimSpace(string(rb)))
@@ -98,6 +104,7 @@ func (c *client) patch(ctx context.Context, path string, body any) error {
 	if err != nil {
 		return err
 	}
+	diag.Logf("PATCH %s", path)
 	req, err := http.NewRequestWithContext(ctx, "PATCH", c.base+path, strings.NewReader(string(b)))
 	if err != nil {
 		return err
@@ -110,6 +117,7 @@ func (c *client) patch(ctx context.Context, path string, body any) error {
 		return err
 	}
 	defer resp.Body.Close()
+	diag.Logf("PATCH %s -> %s", path, resp.Status)
 	if resp.StatusCode >= 300 {
 		rb, _ := io.ReadAll(resp.Body)
 		return fmt.Errorf("redfish PATCH %s: %s: %s", path, resp.Status, strings.TrimSpace(string(rb)))
