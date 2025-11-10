@@ -65,7 +65,7 @@ func (c *client) get(ctx context.Context, path string, v any) error {
 	if err != nil {
 		return err
 	}
-	defer resp.Body.Close()
+	defer resp.Body.Close() // nolint:errcheck
 	diag.Logf("GET %s -> %s", path, resp.Status)
 	if resp.StatusCode >= 300 {
 		b, _ := io.ReadAll(resp.Body)
@@ -92,7 +92,7 @@ func (c *client) post(ctx context.Context, path string, body any) error {
 	if err != nil {
 		return err
 	}
-	defer resp.Body.Close()
+	defer resp.Body.Close() // nolint:errcheck
 	diag.Logf("POST %s -> %s", path, resp.Status)
 	if resp.StatusCode >= 300 {
 		rb, _ := io.ReadAll(resp.Body)
@@ -118,7 +118,7 @@ func (c *client) patch(ctx context.Context, path string, body any) error {
 	if err != nil {
 		return err
 	}
-	defer resp.Body.Close()
+	defer resp.Body.Close() // nolint:errcheck
 	diag.Logf("PATCH %s -> %s", path, resp.Status)
 	if resp.StatusCode >= 300 {
 		rb, _ := io.ReadAll(resp.Body)

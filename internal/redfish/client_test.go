@@ -89,13 +89,13 @@ func TestClientURLs(t *testing.T) {
 				// Return mock Redfish responses
 				switch r.URL.Path {
 				case "/redfish/v1/Systems":
-					w.Write([]byte(`{"Members":[{"@odata.id":"/redfish/v1/Systems/1"}]}`))
+					w.Write([]byte(`{"Members":[{"@odata.id":"/redfish/v1/Systems/1"}]}`)) //nolint:errcheck
 				case "/redfish/v1/EthernetInterfaces":
-					w.Write([]byte(`{"Members":[{"@odata.id":"/redfish/v1/EthernetInterfaces/1"}]}`))
+					w.Write([]byte(`{"Members":[{"@odata.id":"/redfish/v1/EthernetInterfaces/1"}]}`)) //nolint:errcheck
 				case "/redfish/v1/EthernetInterfaces/1":
-					w.Write([]byte(`{"Id":"1","MACAddress":"aa:bb:cc:dd:ee:ff"}`))
+					w.Write([]byte(`{"Id":"1","MACAddress":"aa:bb:cc:dd:ee:ff"}`)) //nolint:errcheck
 				default:
-					w.Write([]byte(`{}`))
+					w.Write([]byte(`{}`)) //nolint:errcheck
 				}
 			}))
 			defer ts.Close()
