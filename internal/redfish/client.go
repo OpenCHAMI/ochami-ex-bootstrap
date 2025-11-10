@@ -53,8 +53,9 @@ type rfEthernetInterface struct {
 }
 
 func (c *client) get(ctx context.Context, path string, v any) error {
+	path = c.resolvePath(path)
 	diag.Logf("GET %s", path)
-	req, err := http.NewRequestWithContext(ctx, "GET", c.base+path, nil)
+	req, err := http.NewRequestWithContext(ctx, "GET", path, nil)
 	if err != nil {
 		return err
 	}
@@ -74,12 +75,13 @@ func (c *client) get(ctx context.Context, path string, v any) error {
 }
 
 func (c *client) post(ctx context.Context, path string, body any) error {
+	path = c.resolvePath(path)
 	b, err := json.Marshal(body)
 	if err != nil {
 		return err
 	}
 	diag.Logf("POST %s", path)
-	req, err := http.NewRequestWithContext(ctx, "POST", c.base+path, strings.NewReader(string(b)))
+	req, err := http.NewRequestWithContext(ctx, "POST", path, strings.NewReader(string(b)))
 	if err != nil {
 		return err
 	}
@@ -133,22 +135,18 @@ func (c *client) firstSystemPath(ctx context.Context) (string, error) {
 	if len(coll.Members) == 0 {
 		return "", errors.New("no systems reported by BMC")
 	}
-	oid := coll.Members[0].OID
-	if !strings.HasPrefix(oid, c.base) {
-		return oid, nil
-	}
-	return strings.TrimPrefix(oid, c.base), nil
+	return c.resolvePath(coll.Members[0].OID), nil
 }
 
-func (c *client) listEthernetInterfaces(ctx context.Context, sysPath string) ([]rfEthernetInterface, error) {
+func (c *client) listEthernetInterfaces(ctx context.Context) ([]rfEthernetInterface, error) {
 	var coll rfCollection
-	if err := c.get(ctx, sysPath+"/EthernetInterfaces", &coll); err != nil {
+	if err := c.get(ctx, "/EthernetInterfaces", &coll); err != nil {
 		return nil, err
 	}
 	var out []rfEthernetInterface
 	for _, m := range coll.Members {
 		var nic rfEthernetInterface
-		path := strings.TrimPrefix(m.OID, c.base)
+		path := c.resolvePath(m.OID)
 		if err := c.get(ctx, path, &nic); err != nil {
 			return nil, err
 		}
@@ -176,11 +174,7 @@ func isBootable(n rfEthernetInterface) bool {
 // DiscoverBootableMACs returns MAC addresses of bootable NICs for a given BMC.
 func DiscoverBootableMACs(ctx context.Context, host, user, pass string, insecure bool, timeout time.Duration) ([]string, error) {
 	c := newClient(host, user, pass, insecure, timeout)
-	sysPath, err := c.firstSystemPath(ctx)
-	if err != nil {
-		return nil, err
-	}
-	nics, err := c.listEthernetInterfaces(ctx, sysPath)
+	nics, err := c.listEthernetInterfaces(ctx)
 	if err != nil {
 		return nil, err
 	}
@@ -231,4 +225,14 @@ func SetAuthorizedKeys(ctx context.Context, host, user, pass string, insecure bo
 		},
 	}
 	return c.patch(ctx, "/Managers/BMC/NetworkProtocol", payload)
+}
+
+func (c *client) resolvePath(path string) string {
+	if strings.HasPrefix(path, c.base) || strings.HasPrefix(path, "http") {
+		return path
+	}
+	if strings.HasPrefix(path, "/") {
+		return c.base + path
+	}
+	return c.base + "/" + path
 }
