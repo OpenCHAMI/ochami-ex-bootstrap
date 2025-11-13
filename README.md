@@ -58,7 +58,7 @@ Show help:
 ```bash
 ./ochami_bootstrap init-bmcs --file examples/inventory.yaml \
   --chassis "x9000c1=02:23:28:01,x9000c3=02:23:28:03" \
-  --bmc-subnet 192.168.100 \
+  --bmc-subnet 192.168.100.0/24 \
   --nodes-per-chassis 32 \
   --nodes-per-bmc 2 \
   --start-nid 1

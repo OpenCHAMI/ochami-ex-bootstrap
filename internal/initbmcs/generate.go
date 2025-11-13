@@ -10,6 +10,7 @@ import (
 	"strings"
 
 	"bootstrap/internal/inventory"
+	"bootstrap/internal/netalloc"
 )
 
 func getBmcID(n int) int { return (n + 1) / 2 }
@@ -47,17 +48,26 @@ func ParseChassisSpec(spec string) map[string]string {
 }
 
 // Generate creates the BMC entries for an initial inventory.
-func Generate(chassis map[string]string, nodesPerChassis, nodesPerBMC, startNID int, bmcSubnetBase string) []inventory.Entry {
+// bmcSubnet should be in CIDR notation, e.g. "192.168.100.0/24"
+func Generate(chassis map[string]string, nodesPerChassis, nodesPerBMC, startNID int, bmcSubnet string) ([]inventory.Entry, error) {
+	alloc, err := netalloc.NewAllocator(bmcSubnet)
+	if err != nil {
+		return nil, fmt.Errorf("bmc subnet init: %w", err)
+	}
+
 	var bmcs []inventory.Entry
 	nid := startNID
 	for c, macPref := range chassis {
 		for i := nid; i < nid+nodesPerChassis; i += nodesPerBMC {
 			x := getNCXname(c, i)
-			ip := fmt.Sprintf("%s.%d", bmcSubnetBase, getBmcID(i))
+			ip, err := alloc.Next()
+			if err != nil {
+				return nil, fmt.Errorf("allocate IP for %s: %w", x, err)
+			}
 			mac := strings.ToLower(getNCMAC(macPref, i))
 			bmcs = append(bmcs, inventory.Entry{Xname: x, MAC: mac, IP: ip})
 		}
 		nid = nid + nodesPerChassis
 	}
-	return bmcs
+	return bmcs, nil
 }
