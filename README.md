@@ -1,3 +1,9 @@
+<!--
+SPDX-FileCopyrightText: 2025 OpenCHAMI Contributors
+
+SPDX-License-Identifier: MIT
+-->
+
 # ochami-ex-bootstrap
 
 A small CLI tool to discover bootable node NICs via BMC Redfish and produce a YAML inventory (`bmcs[]` and `nodes[]`).
@@ -39,7 +45,7 @@ go mod tidy
 go build -o ochami_bootstrap .
 ```
 
-## Usage 
+## Usage
 
 Show help:
 

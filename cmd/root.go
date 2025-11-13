@@ -1,3 +1,7 @@
+// SPDX-FileCopyrightText: 2025 OpenCHAMI Contributors
+//
+// SPDX-License-Identifier: MIT
+
 package cmd
 
 import (
@@ -12,7 +16,7 @@ import (
 var rootCmd = &cobra.Command{
 	Use:   "ochami_bootstrap",
 	Short: "Bootstrap inventory generation and NIC discovery via Redfish",
-	PersistentPreRun: func(cmd *cobra.Command, args []string) {
+	PersistentPreRun: func(cmd *cobra.Command, args []string) { //nolint:revive
 		// propagate debug flag to internal diagnostics
 		diag.Debug = debugFlag
 	},

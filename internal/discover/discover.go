@@ -1,3 +1,8 @@
+// SPDX-FileCopyrightText: 2025 OpenCHAMI Contributors
+//
+// SPDX-License-Identifier: MIT
+
+// Package discover implements node discovery via Redfish.
 package discover
 
 import (

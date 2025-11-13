@@ -1,3 +1,8 @@
+// SPDX-FileCopyrightText: 2025 OpenCHAMI Contributors
+//
+// SPDX-License-Identifier: MIT
+
+// Package cmd implements the CLI commands.
 package cmd
 
 import (
@@ -27,7 +32,7 @@ var (
 var discoverCmd = &cobra.Command{
 	Use:   "discover",
 	Short: "Discover bootable node NICs via Redfish and update nodes[]",
-	RunE: func(cmd *cobra.Command, args []string) error {
+	RunE: func(cmd *cobra.Command, args []string) error { //nolint:revive
 		// Validate subnet flags - at least one must be provided
 		if discBMCSubnet == "" && discNodeSubnet == "" {
 			return fmt.Errorf("at least one of --bmc-subnet or --node-subnet is required")

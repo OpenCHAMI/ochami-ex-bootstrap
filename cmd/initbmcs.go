@@ -1,3 +1,7 @@
+// SPDX-FileCopyrightText: 2025 OpenCHAMI Contributors
+//
+// SPDX-License-Identifier: MIT
+
 package cmd
 
 import (
@@ -24,7 +28,7 @@ var (
 var initBmcsCmd = &cobra.Command{
 	Use:   "init-bmcs",
 	Short: "Generate initial inventory with BMC entries",
-	RunE: func(cmd *cobra.Command, args []string) error {
+	RunE: func(cmd *cobra.Command, args []string) error { //nolint:revive
 		if strings.Count(initBMCSubnet, ".") != 2 {
 			return fmt.Errorf("--bmc-subnet must be a base with three octets, e.g. 192.168.100")
 		}

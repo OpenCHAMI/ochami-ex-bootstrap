@@ -1,3 +1,8 @@
+// SPDX-FileCopyrightText: 2025 OpenCHAMI Contributors
+//
+// SPDX-License-Identifier: MIT
+
+// Package redfish implements a Redfish client for BMC interactions.
 package redfish
 
 import (
@@ -60,7 +65,7 @@ type rfFirmwareInventory struct {
 		Conditions []struct {
 			Message     string   `json:"Message"`
 			MessageArgs []string `json:"MessageArgs"`
-			MessageId   string   `json:"MessageId"`
+			MessageID   string   `json:"MessageId"`
 			Severity    string   `json:"Severity"`
 			Timestamp   string   `json:"Timestamp"`
 		} `json:"Conditions"`

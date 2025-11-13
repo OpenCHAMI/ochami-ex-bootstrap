@@ -1,3 +1,8 @@
+// SPDX-FileCopyrightText: 2025 OpenCHAMI Contributors
+//
+// SPDX-License-Identifier: MIT
+
+// Package xname provides utilities for handling xnames.
 package xname
 
 import (

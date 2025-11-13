@@ -1,0 +1,89 @@
+# SPDX-FileCopyrightText: Copyright © 2025 OpenCHAMI a Series of LF Projects, LLC
+#
+# SPDX-License-Identifier: MIT
+# GoReleaser configuration for OpenCHAMI ex-bootstrap
+# Documentation: https://goreleaser.com
+
+version: 2
+
+before:
+  hooks:
+    # Download dependencies for the main module only
+    - go mod download
+
+builds:
+  - id: ex-bootstrap
+    main: ./cmd
+    binary: ex-bootstrap
+    env:
+      - CGO_ENABLED=0
+    goos:
+      - linux
+      - darwin
+    goarch:
+      - amd64
+      - arm64
+    # Set version information via ldflags
+    ldflags:
+      - -s -w
+      - -X main.version={{.Version}}
+      - -X main.commit={{.Commit}}
+      - -X main.date={{.Date}}
+    # Build flags
+    flags:
+      - -trimpath
+
+archives:
+  - id: ex-bootstrap
+    name_template: >-
+      {{ .ProjectName }}_
+      {{- .Version }}_
+      {{- .Os }}_
+      {{- if eq .Arch "amd64" }}x86_64
+      {{- else if eq .Arch "386" }}i386
+      {{- else }}{{ .Arch }}{{ end }}
+    files:
+      - LICENSES/MIT.txt
+      - README.md
+      - docs/**/*
+      - templates/**/*
+
+checksum:
+  name_template: 'checksums.txt'
+  algorithm: sha256
+
+snapshot:
+  version_template: "{{ incpatch .Version }}-next"
+
+changelog:
+  sort: asc
+  filters:
+    exclude:
+      - '^docs:'
+      - '^test:'
+      - '^ci:'
+      - '^chore:'
+      - Merge pull request
+      - Merge branch
+
+# Release configuration
+release:
+  github:
+    owner: openchami
+    name: ex-bootstrap
+  draft: false
+  prerelease: auto
+  mode: append
+  header: |
+    ## OpenCHAMI ex-bootstrap {{ .Version }}
+
+    **Release Date:** {{ .Date }}
+
+    ### Installation
+
+    #### Binaries
+    Download the appropriate binary for your platform from the assets below.
+
+  footer: |
+    ---
+    **Full Changelog**: https://github.com/openchami/ochami-ex-bootstrap/compare/{{ .PreviousTag }}...{{ .Tag }}

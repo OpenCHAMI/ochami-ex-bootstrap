@@ -1,3 +1,8 @@
+// SPDX-FileCopyrightText: 2025 OpenCHAMI Contributors
+//
+// SPDX-License-Identifier: MIT
+
+// Package diag implements diagnostic logging utilities.
 package diag
 
 import (

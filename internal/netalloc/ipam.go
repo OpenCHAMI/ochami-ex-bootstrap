@@ -1,3 +1,8 @@
+// SPDX-FileCopyrightText: 2025 OpenCHAMI Contributors
+//
+// SPDX-License-Identifier: MIT
+
+// Package netalloc provides IP address allocation utilities.
 package netalloc
 
 import (
@@ -7,11 +12,13 @@ import (
 	ipam "github.com/metal-stack/go-ipam"
 )
 
+// Allocator manages IP address allocation within a specified subnet.
 type Allocator struct {
 	ipm    ipam.Ipamer
 	prefix *ipam.Prefix
 }
 
+// NewAllocator creates a new Allocator for the given CIDR subnet.
 func NewAllocator(cidr string) (*Allocator, error) {
 	ctx := context.Background()
 	ipm := ipam.New(ctx)
@@ -25,10 +32,12 @@ func NewAllocator(cidr string) (*Allocator, error) {
 	return &Allocator{ipm: ipm, prefix: pr}, nil
 }
 
+// Reserve marks the specified IP address as reserved in the allocator.
 func (a *Allocator) Reserve(ip string) {
 	_, _ = a.ipm.AcquireSpecificIP(context.Background(), a.prefix.Cidr, ip)
 }
 
+// Next allocates and returns the next available IP address in the subnet.
 func (a *Allocator) Next() (string, error) {
 	addr, err := a.ipm.AcquireIP(context.Background(), a.prefix.Cidr)
 	if err != nil {
@@ -37,6 +46,7 @@ func (a *Allocator) Next() (string, error) {
 	return addr.IP.String(), nil
 }
 
+// Contains checks if the given IP address is within the allocator's subnet.
 func (a *Allocator) Contains(ip string) bool {
 	_, n, err := net.ParseCIDR(a.prefix.Cidr)
 	if err != nil {

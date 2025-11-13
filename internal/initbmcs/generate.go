@@ -1,3 +1,8 @@
+// SPDX-FileCopyrightText: 2025 OpenCHAMI Contributors
+//
+// SPDX-License-Identifier: MIT
+
+// Package initbmcs provides functions to generate BMC entries for initial inventory.
 package initbmcs
 
 import (
@@ -19,6 +24,7 @@ func getNCMAC(macStart string, n int) string {
 	return fmt.Sprintf("%s:%d%d:%d0", macStart, 3, getSlot(n), getBlade(n))
 }
 
+// ParseChassisSpec parses a chassis specification string into a map of chassis xnames to MAC prefixes.
 func ParseChassisSpec(spec string) map[string]string {
 	out := map[string]string{}
 	if strings.TrimSpace(spec) == "" {

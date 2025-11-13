@@ -1,3 +1,7 @@
+// SPDX-FileCopyrightText: 2025 OpenCHAMI Contributors
+//
+// SPDX-License-Identifier: MIT
+
 package cmd
 
 import (
@@ -49,7 +53,7 @@ func defaultTargets(t string) ([]string, error) {
 var firmwareCmd = &cobra.Command{
 	Use:   "firmware",
 	Short: "Update firmware via Redfish SimpleUpdate",
-	RunE: func(cmd *cobra.Command, args []string) error {
+	RunE: func(cmd *cobra.Command, args []string) error { //nolint:revive
 		if fwImageURI == "" {
 			return errors.New("--image-uri is required")
 		}
