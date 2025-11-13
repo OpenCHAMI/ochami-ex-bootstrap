@@ -16,15 +16,17 @@ import (
 )
 
 var (
-	fwFile     string
-	fwHostsCSV string
-	fwType     string
-	fwImageURI string
-	fwTargets  []string
-	fwProtocol string
-	fwInsecure bool
-	fwTimeout  time.Duration
-	fwDryRun   bool
+	fwFile            string
+	fwHostsCSV        string
+	fwType            string
+	fwImageURI        string
+	fwTargets         []string
+	fwProtocol        string
+	fwInsecure        bool
+	fwTimeout         time.Duration
+	fwDryRun          bool
+	fwForce           bool
+	fwExpectedVersion string
 )
 
 // defaultTargets returns target list for shorthand types.
@@ -107,18 +109,31 @@ var firmwareCmd = &cobra.Command{
 				ctx, cancel = context.WithTimeout(ctx, fwTimeout)
 			}
 			if fwDryRun {
-				fmt.Printf("[dry-run] would POST SimpleUpdate on %s with image=%s targets=%v protocol=%s\n", host, fwImageURI, fwTargets, fwProtocol)
+				dryRunMsg := fmt.Sprintf("[dry-run] would POST SimpleUpdate on %s with image=%s targets=%v protocol=%s",
+					host, fwImageURI, fwTargets, fwProtocol)
+				if fwExpectedVersion != "" {
+					dryRunMsg += fmt.Sprintf(" expected-version=%s", fwExpectedVersion)
+					if fwForce {
+						dryRunMsg += " (force=true)"
+					}
+				}
+				fmt.Println(dryRunMsg)
 				if cancel != nil {
 					cancel()
 				}
 				continue
 			}
-			err := redfish.SimpleUpdate(ctx, host, user, pass, fwInsecure, fwTimeout, fwImageURI, fwTargets, fwProtocol)
+			err := redfish.SimpleUpdate(ctx, host, user, pass, fwInsecure, fwTimeout, fwImageURI, fwTargets, fwProtocol, fwExpectedVersion, fwForce)
 			if cancel != nil {
 				cancel()
 			}
 			if err != nil {
-				fmt.Fprintf(os.Stderr, "WARN: %s: firmware update failed: %v\n", host, err)
+				// Check if this is a "skipping update" message
+				if strings.Contains(err.Error(), "skipping update") {
+					fmt.Printf("%s: %v\n", host, err)
+				} else {
+					fmt.Fprintf(os.Stderr, "WARN: %s: firmware update failed: %v\n", host, err)
+				}
 			} else {
 				fmt.Printf("Triggered firmware update on %s\n", host)
 			}
@@ -138,4 +153,6 @@ func init() {
 	firmwareCmd.Flags().BoolVar(&fwInsecure, "insecure", true, "allow insecure TLS to BMCs")
 	firmwareCmd.Flags().DurationVar(&fwTimeout, "timeout", 5*time.Minute, "per-BMC firmware request timeout")
 	firmwareCmd.Flags().BoolVar(&fwDryRun, "dry-run", false, "plan only: print SimpleUpdate actions without posting")
+	firmwareCmd.Flags().BoolVar(&fwForce, "force", false, "force update even if already at expected version")
+	firmwareCmd.Flags().StringVar(&fwExpectedVersion, "expected-version", "", "expected version string; skip update if already at this version (unless --force)")
 }

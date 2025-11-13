@@ -543,7 +543,7 @@ func TestSimpleUpdate_WithStatusConditions(t *testing.T) {
 		if r.Method == "GET" && r.URL.Path == "/redfish/v1/UpdateService/FirmwareInventory/BMC" {
 			// Return status with a warning condition
 			w.Header().Set("Content-Type", "application/json")
-			w.Write([]byte(`{
+			_, _ = w.Write([]byte(`{
 				"@odata.id": "/redfish/v1/UpdateService/FirmwareInventory/BMC",
 				"Status": {
 					"Health": "Warning",
@@ -565,7 +565,7 @@ func TestSimpleUpdate_WithStatusConditions(t *testing.T) {
 	ctx := context.Background()
 	host := server.URL[len("https://"):]
 	err := SimpleUpdate(ctx, host, "user", "pass", true, 10*time.Second, "http://example.com/firmware.bin",
-		[]string{"/redfish/v1/UpdateService/FirmwareInventory/BMC"}, "HTTP")
+		[]string{"/redfish/v1/UpdateService/FirmwareInventory/BMC"}, "HTTP", "", false)
 
 	if err == nil {
 		t.Fatal("expected error due to status condition, got nil")
@@ -582,4 +582,121 @@ func contains(s, substr string) bool {
 		}
 	}
 	return false
+}
+
+func TestSimpleUpdate_SkipWhenAlreadyAtVersion(t *testing.T) {
+	server := httptest.NewTLSServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if r.Method == "GET" && r.URL.Path == "/redfish/v1/UpdateService/FirmwareInventory/BMC" {
+			w.Header().Set("Content-Type", "application/json")
+			_, _ = w.Write([]byte(`{
+				"@odata.id": "/redfish/v1/UpdateService/FirmwareInventory/BMC",
+				"Version": "nc.1.9.8",
+				"Status": {
+					"Health": "OK",
+					"State": "Enabled"
+				}
+			}`))
+			return
+		}
+		if r.Method == "POST" && r.URL.Path == "/redfish/v1/UpdateService/Actions/SimpleUpdate" {
+			t.Fatal("should not have called SimpleUpdate when already at expected version")
+		}
+		w.WriteHeader(http.StatusNotFound)
+	}))
+	defer server.Close()
+
+	ctx := context.Background()
+	host := server.URL[len("https://"):]
+
+	// Should skip update when already at expected version
+	err := SimpleUpdate(ctx, host, "user", "pass", true, 10*time.Second, "http://example.com/firmware.bin",
+		[]string{"/redfish/v1/UpdateService/FirmwareInventory/BMC"}, "HTTP", "nc.1.9.8", false)
+
+	if err == nil {
+		t.Fatal("expected error indicating skipped update, got nil")
+	}
+	if !contains(err.Error(), "skipping update") {
+		t.Errorf("expected 'skipping update' message, got: %v", err)
+	}
+	if !contains(err.Error(), "nc.1.9.8") {
+		t.Errorf("expected version in message, got: %v", err)
+	}
+}
+
+func TestSimpleUpdate_ForceWhenAlreadyAtVersion(t *testing.T) {
+	postCalled := false
+	server := httptest.NewTLSServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if r.Method == "GET" && r.URL.Path == "/redfish/v1/UpdateService/FirmwareInventory/BMC" {
+			w.Header().Set("Content-Type", "application/json")
+			_, _ = w.Write([]byte(`{
+				"@odata.id": "/redfish/v1/UpdateService/FirmwareInventory/BMC",
+				"Version": "nc.1.9.8",
+				"Status": {
+					"Health": "OK",
+					"State": "Enabled"
+				}
+			}`))
+			return
+		}
+		if r.Method == "POST" && r.URL.Path == "/redfish/v1/UpdateService/Actions/SimpleUpdate" {
+			postCalled = true
+			w.WriteHeader(http.StatusAccepted)
+			return
+		}
+		w.WriteHeader(http.StatusNotFound)
+	}))
+	defer server.Close()
+
+	ctx := context.Background()
+	host := server.URL[len("https://"):]
+
+	// Should force update even when already at expected version
+	err := SimpleUpdate(ctx, host, "user", "pass", true, 10*time.Second, "http://example.com/firmware.bin",
+		[]string{"/redfish/v1/UpdateService/FirmwareInventory/BMC"}, "HTTP", "nc.1.9.8", true)
+
+	if err != nil {
+		t.Fatalf("expected no error with force=true, got: %v", err)
+	}
+	if !postCalled {
+		t.Error("expected SimpleUpdate POST to be called with force=true")
+	}
+}
+
+func TestSimpleUpdate_UpdateWhenDifferentVersion(t *testing.T) {
+	postCalled := false
+	server := httptest.NewTLSServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if r.Method == "GET" && r.URL.Path == "/redfish/v1/UpdateService/FirmwareInventory/BMC" {
+			w.Header().Set("Content-Type", "application/json")
+			_, _ = w.Write([]byte(`{
+				"@odata.id": "/redfish/v1/UpdateService/FirmwareInventory/BMC",
+				"Version": "nc.1.9.7",
+				"Status": {
+					"Health": "OK",
+					"State": "Enabled"
+				}
+			}`))
+			return
+		}
+		if r.Method == "POST" && r.URL.Path == "/redfish/v1/UpdateService/Actions/SimpleUpdate" {
+			postCalled = true
+			w.WriteHeader(http.StatusAccepted)
+			return
+		}
+		w.WriteHeader(http.StatusNotFound)
+	}))
+	defer server.Close()
+
+	ctx := context.Background()
+	host := server.URL[len("https://"):]
+
+	// Should proceed with update when version differs
+	err := SimpleUpdate(ctx, host, "user", "pass", true, 10*time.Second, "http://example.com/firmware.bin",
+		[]string{"/redfish/v1/UpdateService/FirmwareInventory/BMC"}, "HTTP", "nc.1.9.8", false)
+
+	if err != nil {
+		t.Fatalf("expected no error when updating to different version, got: %v", err)
+	}
+	if !postCalled {
+		t.Error("expected SimpleUpdate POST to be called when version differs")
+	}
 }

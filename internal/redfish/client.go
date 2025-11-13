@@ -53,7 +53,8 @@ type rfEthernetInterface struct {
 }
 
 type rfFirmwareInventory struct {
-	Status struct {
+	Version string `json:"Version"`
+	Status  struct {
 		Health     string `json:"Health"`
 		State      string `json:"State"`
 		Conditions []struct {
@@ -310,11 +311,39 @@ func DiscoverBootableMACs(ctx context.Context, host, user, pass string, insecure
 	return macs, nil
 }
 
-// SimpleUpdate triggers a firmware update via Redfish SimpleUpdate action.
+// SimpleUpdate triggers a Redfish SimpleUpdate action on the given targets.
 // imageURI is a URL accessible by the BMC (e.g., http/https), targets are the FirmwareInventory targets.
 // transferProtocol is typically "HTTP" or "HTTPS".
-func SimpleUpdate(ctx context.Context, host, user, pass string, insecure bool, timeout time.Duration, imageURI string, targets []string, transferProtocol string) error {
+// If expectedVersion is provided and force is false, the update is skipped if any target already has that version.
+func SimpleUpdate(ctx context.Context, host, user, pass string, insecure bool, timeout time.Duration, imageURI string, targets []string, transferProtocol string, expectedVersion string, force bool) error {
 	c := newClient(host, user, pass, insecure, timeout)
+
+	// Check current versions if expectedVersion is provided and not forcing
+	if expectedVersion != "" && !force {
+		allAtExpectedVersion := true
+		var versionInfo []string
+
+		for _, target := range targets {
+			var fw rfFirmwareInventory
+			if err := c.get(ctx, target, &fw); err != nil {
+				// If we can't get version, proceed with update
+				allAtExpectedVersion = false
+				continue
+			}
+
+			versionInfo = append(versionInfo, fmt.Sprintf("%s: %s", target, fw.Version))
+
+			if fw.Version != expectedVersion {
+				allAtExpectedVersion = false
+			}
+		}
+
+		if allAtExpectedVersion && len(versionInfo) > 0 {
+			return fmt.Errorf("skipping update: all targets already at expected version %s\n%s",
+				expectedVersion, strings.Join(versionInfo, "\n"))
+		}
+	}
+
 	payload := map[string]any{
 		"ImageURI":         imageURI,
 		"TransferProtocol": transferProtocol,
