@@ -26,9 +26,8 @@ func NewAllocator(cidr string) (*Allocator, error) {
 	if err != nil {
 		return nil, err
 	}
-	if gw := firstHost(pr); gw != "" {
-		_, _ = ipm.AcquireSpecificIP(ctx, pr.Cidr, gw)
-	}
+	// Previously we reserved the first host (gateway) to avoid collisions.
+	// Removing that reservation allows allocation of the .1 address when desired.
 	return &Allocator{ipm: ipm, prefix: pr}, nil
 }
 

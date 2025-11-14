@@ -21,8 +21,8 @@ func TestAllocatorGatewayReserved(t *testing.T) {
 	if !strings.HasPrefix(ip1, "10.0.0.") {
 		t.Fatalf("unexpected ip1: %s", ip1)
 	}
-	if ip1 != "10.0.0.2" {
-		t.Fatalf("expected first allocation to skip .1 and be .2, got %s", ip1)
+	if ip1 != "10.0.0.1" {
+		t.Fatalf("expected first allocation to be .1, got %s", ip1)
 	}
 }
 
@@ -31,12 +31,16 @@ func TestAllocatorReserveAndNext(t *testing.T) {
 	if err != nil {
 		t.Fatalf("NewAllocator: %v", err)
 	}
-	// First Next should be .2
-	if ip, _ := a.Next(); ip != "10.0.1.2" {
-		t.Fatalf("got %s want 10.0.1.2", ip)
+	// First Next should be .1 (no gateway reserved)
+	if ip, _ := a.Next(); ip != "10.0.1.1" {
+		t.Fatalf("got %s want 10.0.1.1", ip)
 	}
 	// Reserve .4, ensure sequence does not return .4
 	a.Reserve("10.0.1.4")
+	// Next should be .2
+	if ip, _ := a.Next(); ip != "10.0.1.2" {
+		t.Fatalf("got %s want 10.0.1.2", ip)
+	}
 	// Next should be .3
 	if ip, _ := a.Next(); ip != "10.0.1.3" {
 		t.Fatalf("got %s want 10.0.1.3", ip)
