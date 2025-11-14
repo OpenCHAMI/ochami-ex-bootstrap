@@ -57,19 +57,3 @@ func (a *Allocator) Contains(ip string) bool {
 	}
 	return n.Contains(parsedIP)
 }
-
-func firstHost(pr *ipam.Prefix) string {
-	_, n, err := net.ParseCIDR(pr.Cidr)
-	if err != nil {
-		return ""
-	}
-	v4 := n.IP.To4()
-	if v4 == nil {
-		return ""
-	}
-	ip := net.IPv4(v4[0], v4[1], v4[2], v4[3]+1)
-	if n.Contains(ip) {
-		return ip.String()
-	}
-	return ""
-}
