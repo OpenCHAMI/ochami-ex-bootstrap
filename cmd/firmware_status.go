@@ -70,11 +70,16 @@ var firmwareStatusCmd = &cobra.Command{
 			return fmt.Errorf("no hosts to query")
 		}
 
-		// Determine targets
+		// Determine targets. Honor --targets if provided, otherwise use --type like the update command.
 		targets := fwTargets
 		if len(targets) == 0 {
+			typeName := fwType
+			if strings.TrimSpace(typeName) == "" {
+				// default to bmc when not specified
+				typeName = "bmc"
+			}
 			var err error
-			targets, err = defaultTargets("bmc")
+			targets, err = defaultTargets(typeName)
 			if err != nil {
 				return err
 			}
@@ -124,10 +129,26 @@ var firmwareStatusCmd = &cobra.Command{
 					}
 					for _, c := range inv.Conditions {
 						m := strings.ToLower(c.Message)
-						if strings.Contains(m, "updat") || strings.Contains(m, "in progress") || strings.Contains(m, "install") || strings.Contains(m, "running") {
-							anyInProgress = true
+						// Treat explicit failures as errors (do not mark as in-progress)
+						if c.Severity == "Critical" || strings.Contains(m, "failed") || strings.Contains(m, "error") {
+							mu.Lock()
+							prev := errorsList[h]
+							// include MessageID for easier diagnosis when available
+							msg := c.Message
+							if c.MessageID != "" {
+								msg = fmt.Sprintf("%s (%s)", c.MessageID, c.Message)
+							}
+							if prev == "" {
+								errorsList[h] = msg
+							} else {
+								errorsList[h] = prev + "; " + msg
+							}
+							mu.Unlock()
+							continue
 						}
-						if c.Severity == "Warning" || c.Severity == "Critical" {
+
+						// Lightweight progress detection: look for words that indicate work is ongoing.
+						if strings.Contains(m, "in progress") || strings.Contains(m, "install") || strings.Contains(m, "installing") || strings.Contains(m, "running") || strings.Contains(m, "downloading") || strings.Contains(m, "download in progress") {
 							anyInProgress = true
 						}
 					}

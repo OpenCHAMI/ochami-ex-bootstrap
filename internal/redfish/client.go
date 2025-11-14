@@ -77,6 +77,7 @@ type FirmwareCondition struct {
 	Message   string
 	Severity  string
 	Timestamp string
+	MessageID string
 }
 
 // FirmwareInventory is an exported, simplified representation of firmware inventory information.
@@ -102,6 +103,7 @@ func GetFirmwareInventory(ctx context.Context, host, user, pass string, insecure
 			Message:   cond.Message,
 			Severity:  cond.Severity,
 			Timestamp: cond.Timestamp,
+			MessageID: cond.MessageID,
 		})
 	}
 	return out, nil
