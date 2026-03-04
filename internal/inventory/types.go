@@ -14,6 +14,7 @@ type Entry struct {
 
 // FileFormat is the root YAML structure with bmcs and nodes.
 type FileFormat struct {
-	BMCs  []Entry `yaml:"bmcs"`
-	Nodes []Entry `yaml:"nodes"`
+	BMCs      []Entry `yaml:"bmcs"`
+	Cabinets  []Entry `yaml:"cabinets"`
+	Nodes     []Entry `yaml:"nodes"`
 }

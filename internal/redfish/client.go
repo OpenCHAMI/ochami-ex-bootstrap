@@ -524,6 +524,33 @@ func SimpleUpdate(ctx context.Context, host, user, pass string, insecure bool, t
 
 // SetAuthorizedKeys configures the SSH authorized keys on a BMC.
 // The Redfish path used is /Managers/BMC/NetworkProtocol with an OEM payload.
+type ManagerInfo struct {
+    MAC string
+    IP  string
+}
+
+// DiscoverManagerInfo discovers the manager (BMC) Ethernet interfaces and returns the first valid MAC and IP.
+func DiscoverManagerInfo(ctx context.Context, host, user, pass string, insecure bool, timeout time.Duration) (ManagerInfo, error) {
+    c := newClient(host, user, pass, insecure, timeout)
+    nics, err := c.listEthernetInterfaces(ctx, "/Managers/BMC")
+    if err != nil {
+        return ManagerInfo{}, err
+    }
+    for _, nic := range nics {
+        if !isValidMAC(nic.MACAddress) {
+            continue
+        }
+        mac := strings.ToLower(nic.MACAddress)
+        ip := ""
+        if len(nic.IPv4Addresses) > 0 {
+            ip = nic.IPv4Addresses[0].Address
+        }
+        return ManagerInfo{MAC: mac, IP: ip}, nil
+    }
+    return ManagerInfo{}, fmt.Errorf("no valid manager ethernet interface found")
+}
+
+// SetAuthorizedKeys configures the SSH authorized keys on a BMC.
 func SetAuthorizedKeys(ctx context.Context, host, user, pass string, insecure bool, timeout time.Duration, authorizedKey string) error {
 	c := newClient(host, user, pass, insecure, timeout)
 	payload := map[string]any{

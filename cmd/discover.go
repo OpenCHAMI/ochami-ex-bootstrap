@@ -89,12 +89,13 @@ var discoverCmd = &cobra.Command{
 		}
 
 		// Optionally set SSH authorized keys on each BMC if provided.
+		var authorized string
 		if discSSHPubKey != "" {
 			keyBytes, err := os.ReadFile(discSSHPubKey)
 			if err != nil {
 				return fmt.Errorf("read ssh pubkey: %w", err)
 			}
-			authorized := string(keyBytes)
+			authorized = string(keyBytes)
 			for _, b := range doc.BMCs {
 				host := b.IP
 				if host == "" {
@@ -112,11 +113,38 @@ var discoverCmd = &cobra.Command{
 			}
 		}
 
-		nodes, err := discover.UpdateNodes(&doc, discBMCSubnet, discNodeSubnet, discNodeStartIP, user, pass, discInsecure, discTimeout)
-		if err != nil {
-			return err
+	nodes, err := discover.UpdateNodes(&doc, discBMCSubnet, discNodeSubnet, discNodeStartIP, user, pass, discInsecure, discTimeout)
+	if err != nil {
+		return err
+	}
+	doc.Nodes = nodes
+	// Discover cabinets based on BMC xnames and add to inventory
+	if cabinets, err := discover.DiscoverCabinets(doc.BMCs, user, pass, discInsecure, discTimeout); err == nil {
+		doc.Cabinets = cabinets
+	} else {
+		// Log warning but continue
+		fmt.Fprintf(os.Stderr, "WARN: cabinet discovery: %v\n", err)
+	}
+	// Optionally set SSH authorized keys on each cabinet if provided (reuse same key file)
+	if discSSHPubKey != "" {
+		for _, c := range doc.Cabinets {
+			host := c.IP
+			if host == "" {
+				// No IP for cabinet, cannot configure
+				continue
+			}
+			ctx := cmd.Context()
+			if discTimeout > 0 {
+				var cancel context.CancelFunc
+				ctx, cancel = context.WithTimeout(ctx, discTimeout)
+				defer cancel()
+			}
+			if err := redfish.SetAuthorizedKeys(ctx, host, user, pass, discInsecure, discTimeout, authorized); err != nil {
+				fmt.Fprintf(os.Stderr, "WARN: %s: set authorized keys (cabinet): %v\n", c.Xname, err)
+			}
 		}
-		doc.Nodes = nodes
+	}
+
 		bytes, err := yaml.Marshal(&doc)
 		if err != nil {
 			return err
